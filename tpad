@@ -1,0 +1,46 @@
+#!/usr/bin/env nu
+
+def "main install" [] {
+    print "copying files to /srv/tpad..."
+    sudo cp -r . /srv/tpad
+    if not ("/var/lib/tpad" | path exists) {
+        print "creating data dir /var/lib/tpad..."
+        sudo mkdir /var/lib/tpad
+    }
+    let svc = "[Unit]
+Description=tpad notepad server
+After=network.target
+
+[Service]
+ExecStart=/srv/tpad/tpad run
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target"
+    print "writing /etc/systemd/system/tpad.service..."
+    $svc | save -f /tmp/tpad.service
+    sudo mv /tmp/tpad.service /etc/systemd/system/tpad.service
+    sudo systemctl daemon-reload
+    print "enabling and starting service..."
+    sudo systemctl enable --now tpad
+    print "done"
+}
+
+def "main run" [] {
+    print "compiling src/main.rs to /tmp/tpad..."
+    rustc -O src/main.rs -o /tmp/tpad
+    print "starting /tmp/tpad..."
+    /tmp/tpad
+}
+
+def "main uninstall" [] {
+    sudo systemctl disable --now tpad
+    sudo rm -f /etc/systemd/system/tpad.service
+    sudo systemctl daemon-reload
+    sudo rm -rf /srv/tpad /var/lib/tpad
+    print "Uninstalled tpad"
+}
+
+def main [] {
+    print "Usage: tpad <install|run|uninstall>"
+}
